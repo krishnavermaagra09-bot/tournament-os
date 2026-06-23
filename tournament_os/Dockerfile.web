@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+COPY alembic.ini .
+COPY web_main.py .
+
+# PORT is injected by Railway/Render/Fly at runtime; 8000 is the local default.
+EXPOSE ${PORT:-8000}
+
+CMD ["sh", "-c", "alembic upgrade head && python web_main.py"]

@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tournament
+      POSTGRES_PASSWORD: tournament_pass
+      POSTGRES_DB: tournament_os
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tournament -d tournament_os"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tournament:tournament_pass@postgres:5432/tournament_os
+      ADMIN_DASHBOARD_TOKEN: ${ADMIN_DASHBOARD_TOKEN:-dev_admin_token_change_me}
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_key_change_me}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tournament:tournament_pass@postgres:5432/tournament_os
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+
+volumes:
+  postgres_data:
